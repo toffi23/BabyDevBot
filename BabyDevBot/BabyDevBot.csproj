@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Discord.Net" Version="2.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Core\Data\" />
+    <Folder Include="Resources\Database\" />
+    <Folder Include="Resources\Datatypes\" />
+    <Folder Include="Resources\Extensions\" />
+  </ItemGroup>
+
+</Project>
