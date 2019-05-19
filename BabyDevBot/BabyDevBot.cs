@@ -3,55 +3,75 @@ using Discord.WebSocket;
 using System;
 using System.Threading.Tasks;
 using System.Linq;
+using Discord.Commands;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BabyDevBot
 {
     class BabyDevBot
     {
-        private const string BotGuild = "Budapest Market Adoption @ RDI Budapest";
-        private const string BotChannel = "bot-test";
-
         private DiscordSocketClient Client;
-        private string Token { get; }
+        private CommandService Commands;
+        private CommandHandler CommandHandler;
+        private IServiceProvider ServiceProvider;
+        private readonly string Token;
+        private IBotMessageProvider Messages;
 
-        private IBotMessageProvider Messages { get; set; }
+        public LogSeverity LogLevel;
 
-        public BabyDevBot(string token)
+        public BabyDevBot(string token, LogSeverity logSeverity = LogSeverity.Warning)
         {
             Token = token;
+            LogLevel = logSeverity;
         }
 
         public async Task Start()
         {
             try
             {
-                Initialize();
+                await Initialize();
                 await Client.LoginAsync(TokenType.Bot, Token);
                 await Client.StartAsync();
 
                 await Task.Delay(-1);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                await Log(new LogMessage(LogSeverity.Error, 
+                await Log(new LogMessage(LogSeverity.Error,
                                          "Exception",
-                                         ex.Message, 
+                                         ex.Message,
                                          ex));
             }
         }
 
-        private void Initialize()
+        private async Task Initialize()
         {
             Client = new DiscordSocketClient(new DiscordSocketConfig
             {
-                LogLevel = Discord.LogSeverity.Debug
+                LogLevel = LogLevel
             });
             Client.Log += Log;
             Client.MessageReceived += Client_MessageReceived;
             Client.Ready += Client_Ready;
 
-            Messages = new BotMessagesHU();
+            Commands = new CommandService(new CommandServiceConfig
+            {
+                CaseSensitiveCommands = false,
+                LogLevel = LogLevel,
+            });
+
+            ServiceProvider = BuildServiceProvider();
+            CommandHandler = new CommandHandler(Client, Commands, ServiceProvider);
+            await CommandHandler.InstallCommandsAsync();
+
+            Messages = new BotMessagesHU();            
         }
+
+        private IServiceProvider BuildServiceProvider() => new ServiceCollection()
+            .AddSingleton(Client)
+            .AddSingleton(Commands)
+            .AddSingleton<CommandHandler>()
+            .BuildServiceProvider();
 
         private Task Client_Ready()
         {
@@ -62,8 +82,7 @@ namespace BabyDevBot
         {
             if(message.Source != MessageSource.Bot)
             {
-                ulong chid = message.Channel.Id;
-                LogMsg($"Channel id: {chid}");
+                // Do nothing for now 
             }
 
             return Task.CompletedTask;
@@ -87,18 +106,30 @@ namespace BabyDevBot
 
         private async Task SendWelcome()
         {
-            var guild = Client.Guilds.First(g => g.Name == BotGuild);
+            var channel = GetBotTestChannel();
+            if (channel != null)
+            {
+                LogMsg($"channel: {channel.Name}");
+                await channel.SendMessageAsync(Messages.GetWelcome());
+            }
+        }
+
+        // TODO: implement generic Maybe pattern to avoid returning null
+        private ISocketMessageChannel GetBotTestChannel()
+        {
+            const string botGuild = "Budapest Market Adoption @ RDI Budapest";
+            const string botChannel = "bot-test";
+            ISocketMessageChannel channel = null;
+
+            var guild = Client.Guilds.First(g => g.Name == botGuild);
             if (guild != null)
             {
-                var channel = guild.Channels
-                                   .First(ch => ch.Name == BotChannel)
-                                    as ISocketMessageChannel;
-                if (channel != null)
-                {
-                    LogMsg($"channel: {channel.Name}");
-                    await channel.SendMessageAsync(Messages.GetWelcome());
-                }
+                channel = guild.Channels
+                               .First(ch => ch.Name == botChannel)
+                                as ISocketMessageChannel;
             }
+
+            return channel;
         }
     }
 }

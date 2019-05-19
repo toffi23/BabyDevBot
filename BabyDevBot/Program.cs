@@ -35,7 +35,7 @@ namespace BabyDevBot
                 if(File.Exists(TokenFileName))
                 {
                     var token = File.ReadAllText(TokenFileName);
-                    Bot = new BabyDevBot(token);
+                    Bot = new BabyDevBot(token, LogSeverity.Debug);
                 }
                 else
                 {
